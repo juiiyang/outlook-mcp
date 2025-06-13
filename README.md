@@ -115,7 +115,7 @@ This will use the MCP Inspector to directly connect to the server and let you te
 1. Start a local authentication server on port 3333 (using `outlook-auth-server.js`)
 2. Use the `authenticate` tool to get an authentication URL
 3. Complete the authentication in your browser
-4. Tokens are stored in `~/.outlook-mcp-tokens.json`
+4. Tokens are stored in `~/.outlook-mcp-tokens-{USER_ID}.json` (supports multi-user)
 
 ## Troubleshooting
 

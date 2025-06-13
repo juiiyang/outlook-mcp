@@ -9,8 +9,12 @@ const path = require('path');
 // Load environment variables from .env file
 require('dotenv').config();
 
+// Get USER_ID from environment variable
+const USER_ID = process.env.USER_ID || 'default';
+
 // Log to console
-console.log('Starting Outlook Authentication Server');
+console.error('Starting Outlook Authentication Server');
+console.error(`Authentication server configured for user: ${USER_ID}`);
 
 // Authentication configuration
 const AUTH_CONFIG = {
@@ -26,7 +30,7 @@ const AUTH_CONFIG = {
     'Calendars.ReadWrite',
     'Contacts.Read'
   ],
-  tokenStorePath: path.join(process.env.HOME || process.env.USERPROFILE, '.outlook-mcp-tokens.json')
+  tokenStorePath: path.join(process.env.HOME || process.env.USERPROFILE, `.outlook-mcp-tokens-${USER_ID}.json`)
 };
 
 // Create HTTP server
@@ -34,7 +38,7 @@ const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
   
-  console.log(`Request received: ${pathname}`);
+  console.error(`Request received: ${pathname}`);
   
   if (pathname === '/auth/callback') {
     const query = parsedUrl.query;
@@ -66,12 +70,12 @@ const server = http.createServer((req, res) => {
     }
     
     if (query.code) {
-      console.log('Authorization code received, exchanging for tokens...');
+      console.error('Authorization code received, exchanging for tokens...');
       
       // Exchange code for tokens
       exchangeCodeForTokens(query.code)
         .then((tokens) => {
-          console.log('Token exchange successful');
+          console.error('Token exchange successful');
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end(`
             <html>
@@ -142,7 +146,7 @@ const server = http.createServer((req, res) => {
     }
   } else if (pathname === '/auth') {
     // Handle the /auth route - redirect to Microsoft's OAuth authorization endpoint
-    console.log('Auth request received, redirecting to Microsoft login...');
+    console.error('Auth request received, redirecting to Microsoft login...');
     
     // Verify credentials are set
     if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
@@ -188,7 +192,7 @@ const server = http.createServer((req, res) => {
     };
     
     const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${querystring.stringify(authParams)}`;
-    console.log(`Redirecting to: ${authUrl}`);
+    console.error(`Redirecting to: ${authUrl}`);
     
     // Redirect to Microsoft's login page
     res.writeHead(302, { 'Location': authUrl });
@@ -266,7 +270,7 @@ function exchangeCodeForTokens(code) {
             
             // Save tokens to file
             fs.writeFileSync(AUTH_CONFIG.tokenStorePath, JSON.stringify(tokenResponse, null, 2), 'utf8');
-            console.log(`Tokens saved to ${AUTH_CONFIG.tokenStorePath}`);
+            console.error(`Tokens saved for user ${USER_ID} to ${AUTH_CONFIG.tokenStorePath}`);
             
             resolve(tokenResponse);
           } catch (error) {
@@ -290,23 +294,23 @@ function exchangeCodeForTokens(code) {
 // Start server
 const PORT = 3333;
 server.listen(PORT, () => {
-  console.log(`Authentication server running at http://localhost:${PORT}`);
-  console.log(`Waiting for authentication callback at ${AUTH_CONFIG.redirectUri}`);
-  console.log(`Token will be stored at: ${AUTH_CONFIG.tokenStorePath}`);
+  console.error(`Authentication server running at http://localhost:${PORT}`);
+  console.error(`Waiting for authentication callback at ${AUTH_CONFIG.redirectUri}`);
+  console.error(`Token will be stored for user ${USER_ID} at: ${AUTH_CONFIG.tokenStorePath}`);
   
   if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
-    console.log('\n⚠️  WARNING: Microsoft Graph API credentials are not set.');
-    console.log('   Please set the MS_CLIENT_ID and MS_CLIENT_SECRET environment variables.');
+    console.error('\n⚠️  WARNING: Microsoft Graph API credentials are not set.');
+    console.error('   Please set the MS_CLIENT_ID and MS_CLIENT_SECRET environment variables.');
   }
 });
 
 // Handle termination
 process.on('SIGINT', () => {
-  console.log('Authentication server shutting down');
+  console.error('Authentication server shutting down');
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('Authentication server shutting down');
+  console.error('Authentication server shutting down');
   process.exit(0);
 });

@@ -6,17 +6,17 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
 // Configuration
-const homePath = process.env.HOME || '/Users/ryaker';
-const tokenPath = path.join(homePath, '.outlook-mcp-tokens.json');
+const tokenPath = config.AUTH_CONFIG.tokenStorePath;
 const notificationsFolderId = 'AAMkAGQ0NzYwMTdmLTYzMWUtNDE1ZS04ZDYyLTZjZmQ5YjkyNWM0OQAuAAAAAAAMiw_uRKMyQ4cvWGcmDNGZAQD-pkus0juzTK_ueB_BlgMCAAGKmpqpAAA=';
 
 // Main function
 async function createGitHubRule() {
   try {
-    // Read the authentication token from file
-    console.log(`Reading token from ${tokenPath}`);
+    // Read the authentication token from file (user-specific)
+    console.error(`Reading token for user ${config.USER_ID} from ${tokenPath}`);
     const tokenData = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
     const accessToken = tokenData.access_token;
     
@@ -25,7 +25,7 @@ async function createGitHubRule() {
       process.exit(1);
     }
     
-    console.log('Successfully read access token');
+    console.error('Successfully read access token');
     
     // Define the rule for GitHub notifications
     const rule = {
@@ -55,14 +55,14 @@ async function createGitHubRule() {
     };
     
     // Create the rule
-    console.log('Creating GitHub notifications rule...');
+    console.error('Creating GitHub notifications rule...');
     const response = await callGraphAPI('me/mailFolders/inbox/messageRules', 'POST', rule);
     
-    console.log('\nRule created successfully:');
-    console.log(`Name: ${response.displayName}`);
-    console.log(`ID: ${response.id}`);
-    console.log(`Sequence: ${response.sequence}`);
-    console.log(`Enabled: ${response.isEnabled}`);
+    console.error('\nRule created successfully:');
+    console.error(`Name: ${response.displayName}`);
+    console.error(`ID: ${response.id}`);
+    console.error(`Sequence: ${response.sequence}`);
+    console.error(`Enabled: ${response.isEnabled}`);
     
     // Create a second rule for repository notifications
     const repoRule = {
@@ -86,16 +86,16 @@ async function createGitHubRule() {
       }
     };
     
-    console.log('\nCreating GitHub repository notifications rule...');
+    console.error('\nCreating GitHub repository notifications rule...');
     const repoResponse = await callGraphAPI('me/mailFolders/inbox/messageRules', 'POST', repoRule);
     
-    console.log('\nRepository rule created successfully:');
-    console.log(`Name: ${repoResponse.displayName}`);
-    console.log(`ID: ${repoResponse.id}`);
-    console.log(`Sequence: ${repoResponse.sequence}`);
-    console.log(`Enabled: ${repoResponse.isEnabled}`);
+    console.error('\nRepository rule created successfully:');
+    console.error(`Name: ${repoResponse.displayName}`);
+    console.error(`ID: ${repoResponse.id}`);
+    console.error(`Sequence: ${repoResponse.sequence}`);
+    console.error(`Enabled: ${repoResponse.isEnabled}`);
     
-    console.log('\nRules created successfully! Your GitHub notifications will now be moved to the Notifications subfolder.');
+    console.error('\nRules created successfully! Your GitHub notifications will now be moved to the Notifications subfolder.');
   } catch (error) {
     console.error('Error:', error);
   }

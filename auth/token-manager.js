@@ -1,5 +1,6 @@
 /**
  * Token management for Microsoft Graph API authentication
+ * Supports multi-user token storage using USER_ID environment variable
  */
 const fs = require('fs');
 const config = require('../config');
@@ -16,6 +17,7 @@ function loadTokenCache() {
     const tokenPath = config.AUTH_CONFIG.tokenStorePath;
     console.error(`[DEBUG] Attempting to load tokens from: ${tokenPath}`);
     console.error(`[DEBUG] HOME directory: ${process.env.HOME}`);
+    console.error(`[DEBUG] USER_ID: ${config.USER_ID}`);
     console.error(`[DEBUG] Full resolved path: ${tokenPath}`);
     
     // Log file existence and details
@@ -82,10 +84,10 @@ function loadTokenCache() {
 function saveTokenCache(tokens) {
   try {
     const tokenPath = config.AUTH_CONFIG.tokenStorePath;
-    console.error(`Saving tokens to: ${tokenPath}`);
+    console.error(`Saving tokens for user ${config.USER_ID} to: ${tokenPath}`);
     
     fs.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2));
-    console.error('Tokens saved successfully');
+    console.error(`Tokens saved successfully for user ${config.USER_ID}`);
     
     // Update the cache
     cachedTokens = tokens;
@@ -115,8 +117,8 @@ function getAccessToken() {
  */
 function createTestTokens() {
   const testTokens = {
-    access_token: "test_access_token_" + Date.now(),
-    refresh_token: "test_refresh_token_" + Date.now(),
+    access_token: `test_access_token_${config.USER_ID}_${Date.now()}`,
+    refresh_token: `test_refresh_token_${config.USER_ID}_${Date.now()}`,
     expires_at: Date.now() + (3600 * 1000) // 1 hour
   };
   

@@ -6,16 +6,16 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
 // Configuration
-const homePath = process.env.HOME || '/Users/ryaker';
-const tokenPath = path.join(homePath, '.outlook-mcp-tokens.json');
+const tokenPath = config.AUTH_CONFIG.tokenStorePath;
 
 // Main function
 async function findFolderIds() {
   try {
-    // Read the authentication token from file
-    console.log(`Reading token from ${tokenPath}`);
+    // Read the authentication token from file (user-specific)
+    console.error(`Reading token for user ${config.USER_ID} from ${tokenPath}`);
     const tokenData = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
     const accessToken = tokenData.access_token;
     
@@ -24,16 +24,16 @@ async function findFolderIds() {
       process.exit(1);
     }
     
-    console.log('Successfully read access token');
+    console.error('Successfully read access token');
     
     // Step 1: Get the list of folders
-    console.log('\nFetching top-level folders...');
+    console.error('\nFetching top-level folders...');
     const folders = await callGraphAPI('me/mailFolders?$top=100');
     
     // Print all folders and their IDs for reference
-    console.log('\nAll top-level folders:');
+    console.error('\nAll top-level folders:');
     folders.value.forEach(folder => {
-      console.log(`${folder.displayName}: ${folder.id}`);
+      console.error(`${folder.displayName}: ${folder.id}`);
     });
     
     // Step 2: Find the GitHub folder specifically
@@ -46,18 +46,18 @@ async function findFolderIds() {
       process.exit(1);
     }
     
-    console.log(`\nFound GitHub folder: ${githubFolder.displayName}`);
-    console.log(`ID: ${githubFolder.id}`);
+    console.error(`\nFound GitHub folder: ${githubFolder.displayName}`);
+    console.error(`ID: ${githubFolder.id}`);
     
     // Step 3: Get child folders of GitHub
-    console.log('\nFetching GitHub child folders...');
+    console.error('\nFetching GitHub child folders...');
     const childFolders = await callGraphAPI(`me/mailFolders/${githubFolder.id}/childFolders`);
     
     // Print all child folders
-    console.log('\nChild folders of GitHub:');
+    console.error('\nChild folders of GitHub:');
     if (childFolders.value && childFolders.value.length > 0) {
       childFolders.value.forEach(folder => {
-        console.log(`${folder.displayName}: ${folder.id}`);
+        console.error(`${folder.displayName}: ${folder.id}`);
       });
       
       // Step 4: Find the Notifications subfolder
@@ -66,19 +66,19 @@ async function findFolderIds() {
       );
       
       if (notificationsFolder) {
-        console.log(`\nFound Notifications subfolder: ${notificationsFolder.displayName}`);
-        console.log(`ID: ${notificationsFolder.id}`);
+        console.error(`\nFound Notifications subfolder: ${notificationsFolder.displayName}`);
+        console.error(`ID: ${notificationsFolder.id}`);
         
         // Final output for easy reference
-        console.log('\n===== FOLDER IDs FOR RULES =====');
-        console.log(`GitHub folder: ${githubFolder.id}`);
-        console.log(`Notifications subfolder: ${notificationsFolder.id}`);
-        console.log('===============================');
+        console.error('\n===== FOLDER IDs FOR RULES =====');
+        console.error(`GitHub folder: ${githubFolder.id}`);
+        console.error(`Notifications subfolder: ${notificationsFolder.id}`);
+        console.error('===============================');
       } else {
-        console.log('\nNotifications subfolder not found in GitHub folder');
+        console.error('\nNotifications subfolder not found in GitHub folder');
       }
     } else {
-      console.log('No child folders found in GitHub folder');
+      console.error('No child folders found in GitHub folder');
     }
   } catch (error) {
     console.error('Error:', error);

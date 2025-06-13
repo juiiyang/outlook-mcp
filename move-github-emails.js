@@ -6,18 +6,18 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
 // Configuration
-const homePath = process.env.HOME || '/Users/ryaker';
-const tokenPath = path.join(homePath, '.outlook-mcp-tokens.json');
+const tokenPath = config.AUTH_CONFIG.tokenStorePath;
 const githubFolderId = 'AAMkAGQ0NzYwMTdmLTYzMWUtNDE1ZS04ZDYyLTZjZmQ5YjkyNWM0OQAuAAAAAAAMiw_uRKMyQ4cvWGcmDNGZAQD-pkus0juzTK_ueB_BlgMCAAGKmpqoAAA=';
 const notificationsFolderId = 'AAMkAGQ0NzYwMTdmLTYzMWUtNDE1ZS04ZDYyLTZjZmQ5YjkyNWM0OQAuAAAAAAAMiw_uRKMyQ4cvWGcmDNGZAQD-pkus0juzTK_ueB_BlgMCAAGKmpqpAAA=';
 
 // Main function
 async function moveGitHubEmails() {
   try {
-    // Read the authentication token from file
-    console.log(`Reading token from ${tokenPath}`);
+    // Read the authentication token from file (user-specific)
+    console.error(`Reading token for user ${config.USER_ID} from ${tokenPath}`);
     const tokenData = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
     const accessToken = tokenData.access_token;
     
@@ -26,10 +26,10 @@ async function moveGitHubEmails() {
       process.exit(1);
     }
     
-    console.log('Successfully read access token');
+    console.error('Successfully read access token');
     
     // Step 1: Search for GitHub notification emails in the inbox
-    console.log('\nSearching for GitHub notification emails...');
+    console.error('\nSearching for GitHub notification emails...');
     const searchParams = new URLSearchParams({
       $filter: "from/emailAddress/address eq 'notifications@github.com' or from/emailAddress/address eq 'noreply@github.com'",
       $top: 100,
@@ -38,7 +38,7 @@ async function moveGitHubEmails() {
     
     const inboxEmails = await callGraphAPI(`me/mailFolders/inbox/messages?${searchParams.toString()}`);
     
-    console.log(`Found ${inboxEmails.value.length} GitHub notification emails in inbox`);
+    console.error(`Found ${inboxEmails.value.length} GitHub notification emails in inbox`);
     
     // Step 2: Classify emails as workflow notifications or other
     const workflowEmails = [];
@@ -60,12 +60,12 @@ async function moveGitHubEmails() {
       }
     });
     
-    console.log(`Workflow notifications: ${workflowEmails.length}`);
-    console.log(`Other GitHub emails: ${otherEmails.length}`);
+    console.error(`Workflow notifications: ${workflowEmails.length}`);
+    console.error(`Other GitHub emails: ${otherEmails.length}`);
     
     // Step 3: Move workflow notifications to the Notifications subfolder
     if (workflowEmails.length > 0) {
-      console.log('\nMoving workflow notifications to Notifications subfolder...');
+      console.error('\nMoving workflow notifications to Notifications subfolder...');
       
       let movedCount = 0;
       for (const email of workflowEmails) {
@@ -74,18 +74,18 @@ async function moveGitHubEmails() {
             destinationId: notificationsFolderId
           });
           movedCount++;
-          console.log(`Moved ${movedCount}/${workflowEmails.length}: "${email.subject}"`);
+          console.error(`Moved ${movedCount}/${workflowEmails.length}: "${email.subject}"`);
         } catch (error) {
           console.error(`Failed to move email: ${error.message}`);
         }
       }
       
-      console.log(`Successfully moved ${movedCount} workflow notifications to Notifications subfolder`);
+      console.error(`Successfully moved ${movedCount} workflow notifications to Notifications subfolder`);
     }
     
     // Step 4: Move other GitHub emails to the main GitHub folder
     if (otherEmails.length > 0) {
-      console.log('\nMoving other GitHub emails to GitHub folder...');
+      console.error('\nMoving other GitHub emails to GitHub folder...');
       
       let movedCount = 0;
       for (const email of otherEmails) {
@@ -94,16 +94,16 @@ async function moveGitHubEmails() {
             destinationId: githubFolderId
           });
           movedCount++;
-          console.log(`Moved ${movedCount}/${otherEmails.length}: "${email.subject}"`);
+          console.error(`Moved ${movedCount}/${otherEmails.length}: "${email.subject}"`);
         } catch (error) {
           console.error(`Failed to move email: ${error.message}`);
         }
       }
       
-      console.log(`Successfully moved ${movedCount} other GitHub emails to GitHub folder`);
+      console.error(`Successfully moved ${movedCount} other GitHub emails to GitHub folder`);
     }
     
-    console.log('\nEmail organization complete!');
+    console.error('\nEmail organization complete!');
   } catch (error) {
     console.error('Error:', error);
   }

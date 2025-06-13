@@ -15,13 +15,16 @@ module.exports = {
   // Test mode setting
   USE_TEST_MODE: process.env.USE_TEST_MODE === 'true',
   
+  // User identification
+  USER_ID: process.env.USER_ID || 'default',
+  
   // Authentication configuration
   AUTH_CONFIG: {
     clientId: process.env.OUTLOOK_CLIENT_ID || '',
     clientSecret: process.env.OUTLOOK_CLIENT_SECRET || '',
     redirectUri: 'http://localhost:3333/auth/callback',
     scopes: ['Mail.Read', 'Mail.ReadWrite', 'Mail.Send', 'User.Read', 'Calendars.Read', 'Calendars.ReadWrite'],
-    tokenStorePath: path.join(homeDir, '.outlook-mcp-tokens.json'),
+    tokenStorePath: path.join(homeDir, `.outlook-mcp-tokens-${process.env.USER_ID || 'default'}.json`),
     authServerUrl: 'http://localhost:3333'
   },
   
