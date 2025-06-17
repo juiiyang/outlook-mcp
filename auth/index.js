@@ -7,17 +7,18 @@ const { authTools } = require('./tools');
 /**
  * Ensures the user is authenticated and returns an access token
  * @param {boolean} forceNew - Whether to force a new authentication
+ * @param {string} userId - The user ID (optional, uses environment variable if not provided)
  * @returns {Promise<string>} - Access token
  * @throws {Error} - If authentication fails
  */
-async function ensureAuthenticated(forceNew = false) {
+async function ensureAuthenticated(forceNew = false, userId = null) {
   if (forceNew) {
     // Force re-authentication
     throw new Error('Authentication required');
   }
   
   // Check for existing token
-  const accessToken = tokenManager.getAccessToken();
+  const accessToken = tokenManager.getAccessToken(userId);
   if (!accessToken) {
     throw new Error('Authentication required');
   }

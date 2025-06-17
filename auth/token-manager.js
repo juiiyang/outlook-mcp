@@ -2,18 +2,36 @@
  * Token management for Microsoft Graph API authentication
  */
 const fs = require('fs');
+const path = require('path');
 const config = require('../config');
 
 // Global variable to store tokens
 let cachedTokens = null;
 
 /**
+ * Get user-specific token file path
+ * @param {string} userId - The user ID
+ * @returns {string} - Path to user's token file
+ */
+function getUserTokenPath(userId) {
+  if (!userId) {
+    // Fallback to default path if no user ID provided
+    return config.AUTH_CONFIG.tokenStorePath;
+  }
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  return path.join(homeDir, `.outlook-mcp-tokens-${userId}.json`);
+}
+
+/**
  * Loads authentication tokens from the token file
+ * @param {string} userId - The user ID (optional, uses environment variable if not provided)
  * @returns {object|null} - The loaded tokens or null if not available
  */
-function loadTokenCache() {
+function loadTokenCache(userId = null) {
   try {
-    const tokenPath = config.AUTH_CONFIG.tokenStorePath;
+    // Get user ID from parameter or environment variable
+    const actualUserId = userId || process.env.USER_ID;
+    const tokenPath = getUserTokenPath(actualUserId);
     console.error(`[DEBUG] Attempting to load tokens from: ${tokenPath}`);
     console.error(`[DEBUG] HOME directory: ${process.env.HOME}`);
     console.error(`[DEBUG] Full resolved path: ${tokenPath}`);
@@ -77,11 +95,14 @@ function loadTokenCache() {
 /**
  * Saves authentication tokens to the token file
  * @param {object} tokens - The tokens to save
+ * @param {string} userId - The user ID (optional, uses environment variable if not provided)
  * @returns {boolean} - Whether the save was successful
  */
-function saveTokenCache(tokens) {
+function saveTokenCache(tokens, userId = null) {
   try {
-    const tokenPath = config.AUTH_CONFIG.tokenStorePath;
+    // Get user ID from parameter or environment variable
+    const actualUserId = userId || process.env.USER_ID;
+    const tokenPath = getUserTokenPath(actualUserId);
     console.error(`Saving tokens to: ${tokenPath}`);
     
     fs.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2));
@@ -98,29 +119,31 @@ function saveTokenCache(tokens) {
 
 /**
  * Gets the current access token, loading from cache if necessary
+ * @param {string} userId - The user ID (optional, uses environment variable if not provided)
  * @returns {string|null} - The access token or null if not available
  */
-function getAccessToken() {
+function getAccessToken(userId = null) {
   if (cachedTokens && cachedTokens.access_token) {
     return cachedTokens.access_token;
   }
   
-  const tokens = loadTokenCache();
+  const tokens = loadTokenCache(userId);
   return tokens ? tokens.access_token : null;
 }
 
 /**
  * Creates a test access token for use in test mode
+ * @param {string} userId - The user ID (optional, uses environment variable if not provided)
  * @returns {object} - The test tokens
  */
-function createTestTokens() {
+function createTestTokens(userId = null) {
   const testTokens = {
     access_token: "test_access_token_" + Date.now(),
     refresh_token: "test_refresh_token_" + Date.now(),
     expires_at: Date.now() + (3600 * 1000) // 1 hour
   };
   
-  saveTokenCache(testTokens);
+  saveTokenCache(testTokens, userId);
   return testTokens;
 }
 
@@ -128,5 +151,6 @@ module.exports = {
   loadTokenCache,
   saveTokenCache,
   getAccessToken,
-  createTestTokens
+  createTestTokens,
+  getUserTokenPath
 };
