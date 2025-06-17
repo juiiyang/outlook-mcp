@@ -123,6 +123,123 @@ This will use the MCP Inspector to directly connect to the server and let you te
 - **OData Filter Errors**: Look for escape sequences in the server logs
 - **API Call Failures**: Check for detailed error messages in the response
 
+## Docker Deployment
+
+### Available Docker Configurations
+
+Three Dockerfile options are provided:
+
+- **Dockerfile** - Dual server (both auth and MCP server together)
+- **Dockerfile.auth-only** - Auth server only
+- **Dockerfile.mcp-only** - MCP server only
+
+### Option 1: Dual Server (Single Container)
+
+Build and run both servers in one container:
+
+```bash
+# Build the image
+docker build -t outlook-dual-server .
+
+# Run the container
+docker run -p 3333:3333 \
+  -e MS_CLIENT_ID=your_azure_app_client_id \
+  -e MS_CLIENT_SECRET=your_azure_app_client_secret \
+  -e REDIRECT_URI=http://your-domain:3333/auth/callback \
+  -e USER_ID=grey \
+  -v ./tokens:/tokens \
+  -i outlook-dual-server
+```
+
+Auth server logs are saved to `/tokens/auth-server.log`.
+
+### Option 2: Separate Containers
+
+Build separate images:
+
+```bash
+# Build both images
+docker build -f Dockerfile.auth-only -t outlook-auth .
+docker build -f Dockerfile.mcp-only -t outlook-mcp .
+
+# Create shared volume for tokens
+docker volume create outlook-tokens
+
+# Run auth server
+docker run -d -p 3333:3333 \
+  -e MS_CLIENT_ID=your_azure_app_client_id \
+  -e MS_CLIENT_SECRET=your_azure_app_client_secret \
+  -e USER_ID=grey \
+  -v outlook-tokens:/tokens \
+  --name outlook-auth outlook-auth
+
+# Run MCP server (for Claude Desktop integration)
+docker run --rm \
+  -e USER_ID=grey \
+  -v outlook-tokens:/tokens \
+  -i outlook-mcp
+```
+
+### Option 3: Docker Compose
+
+Use Docker Compose for orchestrated deployment:
+
+```bash
+# Set environment variables
+export MS_CLIENT_ID=your_azure_app_client_id
+export MS_CLIENT_SECRET=your_azure_app_client_secret
+export USER_ID=grey
+
+# Run both services
+docker-compose up
+```
+
+### Claude Desktop Integration with Docker
+
+Since Claude Desktop requires direct stdin/stdout communication, use the provided wrapper script:
+
+```json
+{
+  "mcpServers": {
+    "outlook": {
+      "command": "/path/to/outlook-mcp/docker-mcp-wrapper.sh",
+      "env": {
+        "USER_ID": "grey",
+        "OUTLOOK_CLIENT_ID": "your_azure_client_id", 
+        "OUTLOOK_CLIENT_SECRET": "your_azure_client_secret"
+      }
+    }
+  }
+}
+```
+
+Make sure to:
+1. Build the MCP image: `docker build -f Dockerfile.mcp-only -t outlook-mcp .`
+2. Create shared volume: `docker volume create outlook-tokens`
+3. Run auth server separately for authentication
+
+### Environment Variables for Docker
+
+- `MS_CLIENT_ID` - Azure app client ID
+- `MS_CLIENT_SECRET` - Azure app client secret  
+- `REDIRECT_URI` - OAuth callback URL (change `your-domain` to your server's domain/IP)
+- `USER_ID` - User identifier (optional, defaults to "default")
+
+### Docker Features
+
+- **Flexible Deployment**: Choose between single or multi-container setup
+- **Persistent Tokens**: Token storage persisted via volume mount at `/tokens`
+- **Multi-User**: Supports multiple users via `USER_ID` environment variable
+- **Production Ready**: Optimized for deployment with minimal dependencies
+- **Separate Logging**: Auth server logs isolated when using separate containers
+
+### Authentication with Docker
+
+1. Start the auth server container
+2. Navigate to `http://your-domain:3333/auth?user_id=YOUR_USER_ID` 
+3. Complete OAuth flow - tokens are saved to shared volume
+4. MCP server automatically uses saved tokens for Graph API requests
+
 ## Extending the Server
 
 To add more functionality:

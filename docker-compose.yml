@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  outlook-auth:
+    build:
+      context: .
+      dockerfile: Dockerfile.auth-only
+    ports:
+      - "3333:3333"
+    environment:
+      - MS_CLIENT_ID=${MS_CLIENT_ID}
+      - MS_CLIENT_SECRET=${MS_CLIENT_SECRET}
+      - REDIRECT_URI=${REDIRECT_URI:-http://localhost:3333/auth/callback}
+      - USER_ID=${USER_ID:-grey}
+    volumes:
+      - tokens:/tokens
+    command: node outlook-auth-server.js
+
+  outlook-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp-only
+    environment:
+      - USER_ID=${USER_ID:-grey}
+      - OUTLOOK_CLIENT_ID=${MS_CLIENT_ID}
+      - OUTLOOK_CLIENT_SECRET=${MS_CLIENT_SECRET}
+    volumes:
+      - tokens:/tokens
+    stdin_open: true
+    depends_on:
+      - outlook-auth
+
+volumes:
+  tokens:

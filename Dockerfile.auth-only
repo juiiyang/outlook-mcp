@@ -1,0 +1,27 @@
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy auth server and environment files
+COPY outlook-auth-server.js ./
+COPY .env* ./
+
+# Create directory for token storage
+RUN mkdir -p /tokens
+
+# Expose port
+EXPOSE 3333
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV HOME=/tokens
+
+# Run auth server only
+CMD ["node", "outlook-auth-server.js"]

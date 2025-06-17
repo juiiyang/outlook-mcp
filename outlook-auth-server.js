@@ -9,12 +9,8 @@ const path = require('path');
 // Load environment variables from .env file
 require('dotenv').config();
 
-// Get USER_ID from environment variable
-const USER_ID = process.env.USER_ID || 'default';
-
 // Log to console
 console.error('Starting Outlook Authentication Server');
-console.error(`Authentication server configured for user: ${USER_ID}`);
 
 // Authentication configuration
 const AUTH_CONFIG = {
@@ -29,9 +25,13 @@ const AUTH_CONFIG = {
     'Calendars.Read',
     'Calendars.ReadWrite',
     'Contacts.Read'
-  ],
-  tokenStorePath: path.join(process.env.HOME || process.env.USERPROFILE, `.outlook-mcp-tokens-${USER_ID}.json`)
+  ]
 };
+
+// Helper function to get token store path for a user
+function getTokenStorePath(userId = 'default') {
+  return path.join(process.env.HOME || process.env.USERPROFILE, `.outlook-mcp-tokens-${userId}.json`);
+}
 
 // Create HTTP server
 const server = http.createServer((req, res) => {
@@ -43,8 +43,19 @@ const server = http.createServer((req, res) => {
   if (pathname === '/auth/callback') {
     const query = parsedUrl.query;
     
+    // Extract user_id from state parameter
+    let userId = 'default';
+    try {
+      if (query.state) {
+        const state = JSON.parse(query.state);
+        userId = state.user_id || 'default';
+      }
+    } catch (error) {
+      console.error('Error parsing state parameter:', error.message);
+    }
+    
     if (query.error) {
-      console.error(`Authentication error: ${query.error} - ${query.error_description}`);
+      console.error(`Authentication error for user ${userId}: ${query.error} - ${query.error_description}`);
       res.writeHead(400, { 'Content-Type': 'text/html' });
       res.end(`
         <html>
@@ -70,12 +81,12 @@ const server = http.createServer((req, res) => {
     }
     
     if (query.code) {
-      console.error('Authorization code received, exchanging for tokens...');
+      console.error(`Authorization code received for user ${userId}, exchanging for tokens...`);
       
       // Exchange code for tokens
-      exchangeCodeForTokens(query.code)
+      exchangeCodeForTokens(query.code, userId)
         .then((tokens) => {
-          console.error('Token exchange successful');
+          console.error(`Token exchange successful for user ${userId}`);
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end(`
             <html>
@@ -91,7 +102,7 @@ const server = http.createServer((req, res) => {
                 <h1>Authentication Successful!</h1>
                 <div class="success-box">
                   <p>You have successfully authenticated with Microsoft Graph API.</p>
-                  <p>The access token has been saved securely.</p>
+                  <p>The access token has been saved securely for user: <strong>${userId}</strong></p>
                 </div>
                 <p>You can now close this window and return to Claude.</p>
               </body>
@@ -99,7 +110,7 @@ const server = http.createServer((req, res) => {
           `);
         })
         .catch((error) => {
-          console.error(`Token exchange error: ${error.message}`);
+          console.error(`Token exchange error for user ${userId}: ${error.message}`);
           res.writeHead(500, { 'Content-Type': 'text/html' });
           res.end(`
             <html>
@@ -146,7 +157,10 @@ const server = http.createServer((req, res) => {
     }
   } else if (pathname === '/auth') {
     // Handle the /auth route - redirect to Microsoft's OAuth authorization endpoint
-    console.error('Auth request received, redirecting to Microsoft login...');
+    const query = parsedUrl.query;
+    const userId = query.user_id || 'default';
+    
+    console.error(`Auth request received for user: ${userId}, redirecting to Microsoft login...`);
     
     // Verify credentials are set
     if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
@@ -178,17 +192,16 @@ const server = http.createServer((req, res) => {
     }
     
     // Get client_id from query parameters or use the default
-    const query = parsedUrl.query;
     const clientId = query.client_id || AUTH_CONFIG.clientId;
     
-    // Build the authorization URL
+    // Build the authorization URL with user_id in state parameter
     const authParams = {
       client_id: clientId,
       response_type: 'code',
       redirect_uri: AUTH_CONFIG.redirectUri,
       scope: AUTH_CONFIG.scopes.join(' '),
       response_mode: 'query',
-      state: Date.now().toString() // Simple state parameter for security
+      state: JSON.stringify({ user_id: userId, timestamp: Date.now() })
     };
     
     const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${querystring.stringify(authParams)}`;
@@ -215,7 +228,9 @@ const server = http.createServer((req, res) => {
           <h1>Outlook Authentication Server</h1>
           <div class="info-box">
             <p>This server is running to handle Microsoft Graph API authentication callbacks.</p>
-            <p>Don't navigate here directly. Instead, use the <code>authenticate</code> tool in Claude to start the authentication process.</p>
+            <p>To authenticate, navigate to: <code>/auth?user_id=YOUR_USER_ID</code></p>
+            <p>For example: <code>http://localhost:3333/auth?user_id=user1</code></p>
+            <p>If no user_id is provided, 'default' will be used.</p>
             <p>Make sure you've set the <code>MS_CLIENT_ID</code> and <code>MS_CLIENT_SECRET</code> environment variables.</p>
           </div>
           <p>Server is running at http://localhost:3333</p>
@@ -229,7 +244,7 @@ const server = http.createServer((req, res) => {
   }
 });
 
-function exchangeCodeForTokens(code) {
+function exchangeCodeForTokens(code, userId = 'default') {
   return new Promise((resolve, reject) => {
     const postData = querystring.stringify({
       client_id: AUTH_CONFIG.clientId,
@@ -268,9 +283,10 @@ function exchangeCodeForTokens(code) {
             // Add expires_at for easier expiration checking
             tokenResponse.expires_at = expiresAt;
             
-            // Save tokens to file
-            fs.writeFileSync(AUTH_CONFIG.tokenStorePath, JSON.stringify(tokenResponse, null, 2), 'utf8');
-            console.error(`Tokens saved for user ${USER_ID} to ${AUTH_CONFIG.tokenStorePath}`);
+            // Save tokens to file using dynamic user ID
+            const tokenStorePath = getTokenStorePath(userId);
+            fs.writeFileSync(tokenStorePath, JSON.stringify(tokenResponse, null, 2), 'utf8');
+            console.error(`Tokens saved for user ${userId} to ${tokenStorePath}`);
             
             resolve(tokenResponse);
           } catch (error) {
@@ -296,7 +312,8 @@ const PORT = 3333;
 server.listen(PORT, () => {
   console.error(`Authentication server running at http://localhost:${PORT}`);
   console.error(`Waiting for authentication callback at ${AUTH_CONFIG.redirectUri}`);
-  console.error(`Token will be stored for user ${USER_ID} at: ${AUTH_CONFIG.tokenStorePath}`);
+  console.error('To authenticate, navigate to: /auth?user_id=YOUR_USER_ID');
+  console.error('Example: http://localhost:3333/auth?user_id=user1');
   
   if (!AUTH_CONFIG.clientId || !AUTH_CONFIG.clientSecret) {
     console.error('\n⚠️  WARNING: Microsoft Graph API credentials are not set.');

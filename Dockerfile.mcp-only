@@ -1,0 +1,31 @@
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy MCP server files
+COPY index.js ./
+COPY config.js ./
+COPY auth/ ./auth/
+COPY email/ ./email/
+COPY calendar/ ./calendar/
+COPY folder/ ./folder/
+COPY rules/ ./rules/
+COPY utils/ ./utils/
+COPY .env* ./
+
+# Create directory for token storage
+RUN mkdir -p /tokens
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV HOME=/tokens
+
+# Run MCP server only
+CMD ["node", "index.js"]
